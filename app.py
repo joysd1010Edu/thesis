@@ -6,41 +6,69 @@ import os
 
 st.set_page_config(page_title="BD IT Firm AI Advisor", page_icon="🤖", layout="wide")
 
+# --- ইউজারের মেসেজ ডান পাশে নেওয়ার কাস্টম ডিজাইন (Custom CSS) ---
+st.markdown(
+    """
+    <style>
+    /* ইউজারের মেসেজ ডান পাশে সরাতে */
+    div[data-testid="stChatMessage"]:has(svg[title="user"]) {
+        flex-direction: row-reverse;
+        text-align: right;
+    }
+    div[data-testid="stChatMessage"]:has(svg[title="user"]) .stMarkdown {
+        background-color: #2b313e; /* হালকা ব্যাকগ্রাউন্ড কালার */
+        padding: 10px;
+        border-radius: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # --- 1. Setup Gemini API ---
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
-    # টোকেন সেভ করা এবং আউটপুট ফরম্যাট করার কনফিগারেশন
     generation_config = {
         "temperature": 0.7, 
         "max_output_tokens": 800, 
     }
     
+    # মডেলের নাম আপডেট করে 'gemini-1.5-flash-latest' দেওয়া হয়েছে
     gemini_model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
+        model_name='gemini-1.5-flash-latest',
         generation_config=generation_config
     )
 except Exception as e:
-    st.error("Gemini API Key configuration error. Please ensure it is added to Streamlit Secrets.")
+    st.error("Gemini API Key-তে সমস্যা আছে। দয়া করে Streamlit Secrets চেক করুন।")
 
-# --- ফাইলের নাম ডাইনামিকভাবে চিনে নেওয়ার লজিক ---
-FILE_NAME = "Data.csv" if os.path.exists("Data.csv") else "data.csv"
+# --- ফাইলের নাম চেক করা ---
+if os.path.exists("Data.csv"):
+    FILE_NAME = "Data.csv"
+elif os.path.exists("data.csv"):
+    FILE_NAME = "data.csv"
+else:
+    FILE_NAME = None
 
 # --- 2. Load Data & Train Model ---
 @st.cache_resource
 def load_data_and_model():
+    if FILE_NAME is None:
+        return None, None, None, False
+        
     try:
-        # on_bad_lines='skip' এবং dropna() ব্যবহার করে ডেটাকে সম্পূর্ণ ত্রুটিমুক্ত করা হয়েছে
         df = pd.read_csv(FILE_NAME, on_bad_lines='skip')
         df = df.dropna(subset=['Funding_Access_Score', 'Employee_Satisfaction_Score', 'Market_Fit_Score', 'Closed'])
         
+        if df.empty:
+            return None, None, None, False
+            
         X = df[['Funding_Access_Score', 'Employee_Satisfaction_Score', 'Market_Fit_Score']]
         y = df['Closed'].astype(int)
 
         rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
         rf_model.fit(X, y)
 
-        # Gemini-এর সাথে তুলনা করার জন্য ইন্ডাস্ট্রির গড় মান
         ind_avg = {
             'Funding': df['Funding_Access_Score'].mean(),
             'Satisfaction': df['Employee_Satisfaction_Score'].mean(),
@@ -56,7 +84,7 @@ if result[3]:
 else:
     success = False
 
-# --- 3. Save New Data (Knowledge Base Update) ---
+# --- 3. Save New Data ---
 def save_new_company_data(name, f_access, e_sat, m_fit, pred):
     try:
         new_data = pd.DataFrame({
@@ -67,13 +95,14 @@ def save_new_company_data(name, f_access, e_sat, m_fit, pred):
             'Closed': [pred]
         })
         
-        # পুরোনো ডেটার সাথে নতুন ডেটা মার্জ করে সেভ করা
-        if os.path.exists(FILE_NAME):
-            existing_df = pd.read_csv(FILE_NAME, on_bad_lines='skip')
+        save_name = FILE_NAME if FILE_NAME else "data.csv"
+        
+        if os.path.exists(save_name):
+            existing_df = pd.read_csv(save_name, on_bad_lines='skip')
             updated_df = pd.concat([existing_df, new_data], ignore_index=True)
-            updated_df.to_csv(FILE_NAME, index=False)
+            updated_df.to_csv(save_name, index=False)
         else:
-            new_data.to_csv(FILE_NAME, index=False)
+            new_data.to_csv(save_name, index=False)
             
         load_data_and_model.clear() 
     except Exception as e:
@@ -116,7 +145,7 @@ def get_gemini_response(user_query, df, rf_model, industry_avg):
 st.title("🤖 AI-Powered IT Firm Assistant & Knowledge Base")
 
 if not success:
-    st.error("Error loading the dataset. Please ensure the CSV file is structured correctly.")
+    st.error("⚠️ ডেটাসেট (data.csv) খুঁজে পাওয়া যাচ্ছে না অথবা ফাইলটি খালি! দয়া করে গিটহাবে আপনার 'data.csv' ফাইলটি আপলোড করুন।")
 else:
     with st.sidebar:
         st.header("➕ Add Company Data")
