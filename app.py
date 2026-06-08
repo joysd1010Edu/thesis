@@ -36,7 +36,7 @@ try:
     
     # গুগলের সবচেয়ে শক্তিশালী ও লেটেস্ট মডেল 'gemini-2.5-pro' ব্যবহার করা হলো
     gemini_model = genai.GenerativeModel(
-        model_name='gemini-2.5-pro',
+        model_name='gemini-2.5-flash',
         generation_config=generation_config
     )
 except Exception as e:
