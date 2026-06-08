@@ -26,17 +26,19 @@ st.markdown(
 )
 
 # --- 1. Setup Gemini API ---
+# --- 1. Setup Gemini API ---
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
     generation_config = {
         "temperature": 0.7, 
-        "max_output_tokens": 800, 
+        # প্রো মডেল এবং পর্যাপ্ত ক্রেডিট থাকার কারণে টোকেন লিমিট বাড়িয়ে দেওয়া হলো
+        "max_output_tokens": 2048, 
     }
     
-    # মডেলের নাম আপডেট করে 'gemini-1.5-flash-latest' দেওয়া হয়েছে
+    # মডেলের নাম পরিবর্তন করে সবচেয়ে শক্তিশালী 'gemini-1.5-pro' দেওয়া হয়েছে
     gemini_model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash-latest',
+        model_name='gemini-1.5-pro',
         generation_config=generation_config
     )
 except Exception as e:
